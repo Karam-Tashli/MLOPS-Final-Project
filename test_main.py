@@ -6,21 +6,24 @@ client = TestClient(app)
 def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Welcome to the Student Project Management API", "environment": "Production"}
+    assert response.json() == {"message": "Welcome to MLOps Final Project API"}
 
-def test_create_project():
-    project_data = {
-        "title": "MLOps Automation",
-        "student_name": "Test Student",
-        "description": "Testing the API",
-        "status": "Pending"
-    }
-    response = client.post("/projects/", json=project_data)
-    assert response.status_code == 201
-    assert response.json()["title"] == "MLOps Automation"
-    assert "id" in response.json()
-
-def test_health_check():
-    response = client.get("/health")
+def test_create_project_authorized():
+    # هنا نرسل المفتاح السري مع الطلب
+    response = client.post(
+        "/projects/",
+        json={"name": "ML Project", "description": "Test Description"},
+        headers={"X-API-Key": "mysecretpassword"}
+    )
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy"}
+    data = response.json()
+    assert data["name"] == "ML Project"
+    assert "id" in data
+
+def test_create_project_unauthorized():
+    # هنا نجرب الدخول بدون مفتاح لنتأكد أن الحماية تعمل
+    response = client.post(
+        "/projects/",
+        json={"name": "Hacker Project", "description": "Should fail"}
+    )
+    assert response.status_code == 403  # يجب أن يرفض الطلب

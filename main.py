@@ -1,79 +1,49 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import List, Optional
 import uuid
 
-# --- App Configuration ---
-# Title and description help with the auto-generated documentation (Swagger UI)
-app = FastAPI(
-    title="Student Project Management API",
-    description="A RESTful API for managing student graduation projects. Built for MLOps Final Exam.",
-    version="1.0.0"
-)
+app = FastAPI()
 
+# --- Security Setup (Identity Management) ---
+API_KEY = "mysecretpassword"  # هذا هو المفتاح السري
+api_key_header = APIKeyHeader(name="X-API-Key")
 
-# --- Data Models (Pydantic) ---
+def verify_api_key(api_key: str = Depends(api_key_header)):
+    if api_key != API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials (Wrong API Key)"
+        )
+    return api_key
+# ---------------------------------------------
+
+# Models
 class ProjectBase(BaseModel):
-    title: str
-    student_name: str
+    name: str
     description: str
-    status: str = "Pending"  # Default status
-
+    status: str = "Active"
 
 class Project(ProjectBase):
     id: str
 
+# In-memory database
+projects_db = []
 
-# --- In-Memory Database ---
-# Using a list to simulate a database for MVP purposes
-projects_db: List[Project] = []
-
-
-# --- Endpoints ---
-
-@app.get("/", tags=["General"])
+@app.get("/")
 def read_root():
-    """
-    Root endpoint to verify the API is running.
-    """
-    return {"message": "Welcome to the Student Project Management API", "environment": "Production"}
+    return {"message": "Welcome to MLOps Final Project API"}
 
-
-@app.get("/health", tags=["General"])
-def health_check():
-    """
-    Health check endpoint for Azure/Docker monitoring.
-    """
-    return {"status": "healthy"}
-
-
-@app.get("/projects/", response_model=List[Project], tags=["Projects"])
+# Public Endpoint (Anyone can see projects)
+@app.get("/projects/", response_model=List[Project])
 def get_projects():
-    """
-    Retrieve a list of all registered projects.
-    """
     return projects_db
 
-
-@app.post("/projects/", response_model=Project, status_code=status.HTTP_201_CREATED, tags=["Projects"])
+# Protected Endpoint (Only authorized users can create projects)
+# لاحظ إضافة depends هنا لحماية الرابط
+@app.post("/projects/", response_model=Project, dependencies=[Depends(verify_api_key)])
 def create_project(project: ProjectBase):
-    """
-    Create a new student project.
-    Generates a unique ID automatically.
-    """
     new_project = Project(id=str(uuid.uuid4()), **project.model_dump())
     projects_db.append(new_project)
     return new_project
-
-
-@app.delete("/projects/{project_id}", tags=["Projects"])
-def delete_project(project_id: str):
-    """
-    Delete a project by its unique ID.
-    """
-    for index, project in enumerate(projects_db):
-        if project.id == project_id:
-            del projects_db[index]
-            return {"message": "Project deleted successfully"}
-
-    raise HTTPException(status_code=404, detail="Project not found")
