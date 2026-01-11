@@ -21,9 +21,10 @@ def test_create_project_authorized():
     assert "id" in data
 
 def test_create_project_unauthorized():
-    # هنا نجرب الدخول بدون مفتاح لنتأكد أن الحماية تعمل
+    # هنا نجرب الدخول بدون مفتاح
     response = client.post(
         "/projects/",
         json={"name": "Hacker Project", "description": "Should fail"}
     )
-    assert response.status_code == 403  # يجب أن يرفض الطلب
+    # التعديل هنا: النظام يعيد 401 عندما يكون المفتاح غير موجود
+    assert response.status_code == 401
